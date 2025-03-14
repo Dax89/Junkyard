@@ -1,6 +1,6 @@
 //  ___ _____ _____   __
 // / __|_   _| _ \ \ / /  StringView implementation for C
-// \__ \ | | |   /\ V /   Version: 2.0
+// \__ \ | | |   /\ V /   Version: 1.0
 // |___/ |_| |_|_\ \_/    https://github.com/Dax89
 //
 // SPDX-FileCopyrightText: 2025 Antonio Davide Trogu <contact@antoniodavide.dev>
@@ -12,22 +12,20 @@
 extern "C" {
 #endif
 
-#include "str.h"
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 // NOLINTBEGIN
-// clang-format off
 typedef struct StrV {
     const char* ptr;
     uintptr_t length;
 } StrV;
 
-#define strv_npos str_npos
-#define strv_from_lit(s) strv_from_cstr_n(s, sizeof(s) - 1)
-#define strv_from_cstr(s) strv_from_cstr_n(s, strlen(s))
-#define strv_from_str(s) strv_from_str_n(s, 0, str_length(s));
+// clang-format off
+#define strv_npos (uintptr_t)-1
+#define strv_lit(s) strv_create_n(s, sizeof(s) - 1)
+#define strv_create(s) strv_create_n(s, strlen(s))
 #define strv_begin(self) ((self)->ptr)
 #define strv_end(self) ((self)->ptr + (self)->length - 1)
 #define strv_first(self) ((self)->ptr[0])
@@ -47,8 +45,8 @@ typedef struct StrV {
 #define strv_lastindex(self, s) _cstr_lastindex_n((self).ptr, (self).length, s, strlen(s))
 #define strv_lastindex_lit(self, s) _cstr_lastindex((self).ptr, (self).length, s, sizeof(s) - 1)
 #define strv_contains(self, s) (strv_index(self, s) != strv_npos)
-#define strv_split(self, sep) strv_split_n(self, sep, strlen(sep))
-#define strv_split_lit(self, sep) strv_split_n(self, sep, sizeof(sep) - 1)
+#define strv_split(self, sep) _strv_split_n(self, sep, strlen(sep))
+#define strv_split_lit(self, sep) _strv_split_n(self, sep, sizeof(sep) - 1)
 
 #define strv_rpop_n(self, n) do { \
     if ((n) <= 0 || ((self)->length) <= 0) break; \
@@ -69,40 +67,86 @@ typedef struct StrV {
 #define strv_pop(self) strv_pop_n(self, 1)
 
 #define strv_foreach_split(it, self, sep) \
-    for(StrV it##_ = (self), it = strv_split(&it##_, sep); strv_valid(it); it = strv_split(&it##_, sep))
-
+    for(StrV it##_ = (self), it = strv_split(&it##_, sep); strv_valid(it); it = strv_split(&it##_, sep)) // NOLINT
+                                                                                                         //
 #define strv_foreach_split_lit(it, self, sep) \
-    for(StrV it##_ = (self), it = strv_split_lit(&it##_, sep); strv_valid(it); it = strv_split_lit(&it##_, sep))
+    for(StrV it##_ = (self), it = strv_split_lit(&it##_, sep); strv_valid(it); it = strv_split_lit(&it##_, sep)) // NOLINT
 
 #define strv_foreach(it, self) \
     for(const char* it = strv_begin(self); it != strv_end(self); it++) // NOLINT
 
+// clang-format on
 
-inline StrV strv_from_cstr_n(const char* s, uintptr_t start, uintptr_t n) {
+inline uintptr_t _cstr_index_n(const char* s1, uintptr_t n1, const char* s2,
+                               uintptr_t n2) {
+    if(!s1 || !s2 || n2 > n1) return strv_npos;
+
+    for(uintptr_t i = 0; i <= n1 - n2; ++i) {
+        bool found = true;
+        for(uintptr_t j = 0; j < n2; ++j) {
+            if(s1[i + j] == s2[j]) continue;
+            found = false;
+            break;
+        }
+        if(found) return i;
+    }
+
+    return strv_npos;
+}
+
+inline uintptr_t _cstr_lastindex_n(const char* s1, uintptr_t n1, const char* s2,
+                                   uintptr_t n2) {
+    if(!s1 || !s2 || n2 > n1) return strv_npos;
+
+    for(uintptr_t i = n1 - n2; i-- > 0;) {
+        bool found = true;
+        for(uintptr_t j = 0; j < n2; ++j) {
+            if(s1[i + j] == s2[j]) continue;
+            found = false;
+            break;
+        }
+        if(found) return i;
+    }
+
+    return strv_npos;
+}
+
+inline StrV strv_create_n(const char* s, uintptr_t n) {
     StrV self;
-    self.ptr = s + start;
+    self.ptr = s;
     self.length = n;
     return self;
 }
 
-inline StrV strv_from_str_n(const Str* s, uintptr_t start, uintptr_t n) {
-    return strv_from_cstr_n(str_cptr(s), start, n);
+inline bool strv_equals_n(StrV self, const char* rhs, uintptr_t n) {
+    if(self.length != n) return false;
+    return !memcmp(self.ptr, rhs, self.length);
 }
 
-inline bool strv_equals_n(StrV self, const char* rhs, uintptr_t n) {
-    return _cstr_equals_n(self.ptr, self.length, rhs, n);
+inline StrV _strv_split_n(StrV* self, const char* sep, uintptr_t n) {
+    if(self->ptr) {
+        uintptr_t idx = _cstr_index_n(self->ptr, self->length, sep, n);
+
+        if(idx != strv_npos) {
+            StrV sp = strv_create_n(self->ptr, idx);
+            self->ptr += idx + n;
+            self->length -= idx + n;
+            return sp;
+        }
+    }
+
+    return {NULL, 0};
 }
 
 inline bool strv_startswith_n(StrV self, const char* prefix, uintptr_t n) {
-    return _cstr_startswith_n(self.ptr, self.length, prefix, n);
+    if(self.length < n) return false;
+    return !memcmp(self.ptr, prefix, n);
 }
 
 inline bool strv_endswith_n(StrV self, const char* suffix, uintptr_t n) {
-    return _cstr_endswith_n(self.ptr, self.length, suffix, n);
-}
-
-inline uintptr_t strv_hash(StrV self) {
-    return _cstr_hash(self.ptr, self.length);
+    if(self.length < n) return false;
+    uintptr_t off = self.length - n;
+    return !memcmp(self.ptr + off, suffix, n);
 }
 
 inline StrV strv_sub(StrV self, uintptr_t start, uintptr_t end) {
@@ -116,32 +160,6 @@ inline StrV strv_sub(StrV self, uintptr_t start, uintptr_t end) {
     return res;
 }
 
-inline StrV strv_split_n(StrV* self, const char* sep, uintptr_t n) {
-    if(self) {
-        uintptr_t idx = _cstr_index_n(self->ptr, self->length, sep, n);
-        StrV r;
-
-        if(idx != str_npos) {
-            r = {self->ptr, idx};
-            self->ptr += idx + n;
-            self->length -= idx + n;
-        }
-        else {
-            r = *self;
-            self->ptr = NULL;
-            self->length = 0;
-        }
-
-        return r;
-    }
-
-#if defined(__cplusplus)
-    return {};
-#else
-    return (StrV){NULL, 0};
-#endif
-}
-// clang-format on
 // NOLINTEND
 
 #if defined(__cplusplus)
