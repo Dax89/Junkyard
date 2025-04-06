@@ -3,7 +3,7 @@
 #include <stdarg.h>
 
 #if defined(_MSC_VER)
-    #include <intrin.h>
+#include <intrin.h>
 #endif
 
 static inline isize calculate_padding(isize n) {
@@ -92,8 +92,10 @@ void* linear_allocator(void* ctx, void* ptr, isize osize, isize nsize) {
     }
 
     char* p = l->end - (nsize + pad);
-    if(ptr == l->end) memmove(p, l->end, osize);
-    else memcpy(p, ptr, osize);
+    if(ptr == l->end)
+        memmove(p, l->end, osize);
+    else
+        memcpy(p, ptr, osize);
     return l->end = p;
 }
 
@@ -249,8 +251,10 @@ BSearchResult _slice_bsearch(const void* self, isize dsize, const void* key,
 
         if(result == 0) return (BSearchResult){.found = true, .index = mid};
 
-        if(result < 0) high = mid;
-        else low = mid + 1;
+        if(result < 0)
+            high = mid;
+        else
+            low = mid + 1;
     }
 
     return (BSearchResult){.found = false, .index = low};
@@ -539,7 +543,8 @@ Str str_dup(const Str* self) {
             copy.data = NULL;
         }
     }
-    else copy.data = NULL;
+    else
+        copy.data = NULL;
 
     return copy;
 }
@@ -685,25 +690,25 @@ unsigned long _hmap_bits(unsigned long cap) {
     if(!cap) return sizeof(unsigned long) * CHAR_BIT;
 
 #if defined(__GNUC__) || defined(__clang__)
-    #if UINTPTR_MAX == 0xFFFFFFFF
+#if UINTPTR_MAX == 0xFFFFFFFF
     return 31 - __builtin_clz(cap);
-    #elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFF
+#elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFF
     return 63 - __builtin_clzl(cap);
-    #else
-        #error "Unsupported platform bits"
-    #endif
+#else
+#error "Unsupported platform bits"
+#endif
 #elif defined(_MSC_VER)
     unsigned long lz;
-    #if UINTPTR_MAX == 0xFFFFFFFF
+#if UINTPTR_MAX == 0xFFFFFFFF
     if(_BitScanReverse(&lz, cap)) return lz;
-    #elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFF
+#elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFF
     if(_BitScanReverse64(&lz, cap)) return lz;
-    #else
-        #error "Unsupported platform bits"
-    #endif
+#else
+#error "Unsupported platform bits"
+#endif
     return sizeof(unsigned long) * CHAR_BIT;
 #else
-    #error "No CLZ intrinsic found"
+#error "No CLZ intrinsic found"
 #endif
 }
 
@@ -713,9 +718,12 @@ static void _rbtree_rol(RBTree* self, RBTreeNode* n) {
     if(c->left) c->left->parent = n;
 
     c->parent = n->parent;
-    if(!n->parent) self->root = c;
-    else if(n == n->parent->left) n->parent->left = c;
-    else n->parent->right = c;
+    if(!n->parent)
+        self->root = c;
+    else if(n == n->parent->left)
+        n->parent->left = c;
+    else
+        n->parent->right = c;
 
     c->left = n;
     n->parent = c;
@@ -727,9 +735,12 @@ static void _rbtree_ror(RBTree* self, RBTreeNode* n) {
     if(c->right) c->right->parent = n;
 
     c->parent = n->parent;
-    if(!n->parent) self->root = c;
-    else if(n == n->parent->right) n->parent->right = c;
-    else n->parent->left = c;
+    if(!n->parent)
+        self->root = c;
+    else if(n == n->parent->right)
+        n->parent->right = c;
+    else
+        n->parent->left = c;
 
     c->right = n;
     n->parent = c;
@@ -793,8 +804,10 @@ static void _rbtree_del_rebalance(RBTree* self, RBTreeNode* n,
         if(sibl && !sibl->black) {
             sibl->black = true;
             parent->black = false;
-            if(left) _rbtree_rol(self, parent);
-            else _rbtree_ror(self, parent);
+            if(left)
+                _rbtree_rol(self, parent);
+            else
+                _rbtree_ror(self, parent);
             sibl = left ? parent->right : parent->left;
         }
 
@@ -847,9 +860,12 @@ RBTreeNode* _rbtree_find(const RBTree* self, const void* k) {
 
     while(node) {
         int c = self->keycmp(k, node);
-        if(c < 0) node = node->left;
-        else if(c > 0) node = node->right;
-        else return node;
+        if(c < 0)
+            node = node->left;
+        else if(c > 0)
+            node = node->right;
+        else
+            return node;
     }
 
     return NULL;
@@ -884,9 +900,12 @@ RBTreeNode* rbtree_last(const RBTree* self) {
 
 RBTreeNode* rbtree_left_deepest(const RBTreeNode* n) {
     while(n) {
-        if(n->left) n = n->left;
-        else if(n->right) n = n->right;
-        else break;
+        if(n->left)
+            n = n->left;
+        else if(n->right)
+            n = n->right;
+        else
+            break;
     }
 
     return (RBTreeNode*)n;
@@ -894,9 +913,12 @@ RBTreeNode* rbtree_left_deepest(const RBTreeNode* n) {
 
 RBTreeNode* rbtree_right_deepest(const RBTreeNode* n) {
     while(n) {
-        if(n->right) n = n->right;
-        else if(n->left) n = n->left;
-        else break;
+        if(n->right)
+            n = n->right;
+        else if(n->left)
+            n = n->left;
+        else
+            break;
     }
 
     return (RBTreeNode*)n;
@@ -957,9 +979,12 @@ bool rbtree_insert(RBTree* self, RBTreeNode* n) {
     while(*link) {
         parent = *link;
         int c = self->nodecmp(n, *link);
-        if(c < 0) link = &parent->left;
-        else if(c > 0) link = &parent->right;
-        else return false;
+        if(c < 0)
+            link = &parent->left;
+        else if(c > 0)
+            link = &parent->right;
+        else
+            return false;
     }
 
     _rbtree_push(n, parent, link);
@@ -1000,9 +1025,12 @@ void rbtree_erase(RBTree* self, RBTreeNode* n) {
 
     if(child) child->parent = parent;
 
-    if(!parent) self->root = child;
-    else if(parent->left == n) parent->left = child;
-    else parent->right = child;
+    if(!parent)
+        self->root = child;
+    else if(parent->left == n)
+        parent->left = child;
+    else
+        parent->right = child;
 
     if(isnodeblack) _rbtree_del_rebalance(self, child, parent);
     --self->length;
@@ -1017,7 +1045,10 @@ void rbtree_replace(RBTreeNode** self, RBTreeNode* oldn, RBTreeNode* newn) {
     if(newn->left) newn->left->parent = newn;
     if(newn->right) newn->right->parent = newn;
 
-    if(!oldn->parent) *self = newn;
-    else if(oldn->parent->left == oldn) oldn->parent->left = newn;
-    else oldn->parent->right = newn;
+    if(!oldn->parent)
+        *self = newn;
+    else if(oldn->parent->left == oldn)
+        oldn->parent->left = newn;
+    else
+        oldn->parent->right = newn;
 }
