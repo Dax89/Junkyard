@@ -1,22 +1,29 @@
-function waitFor(selector, cb, options) {
-    const OPTIONS_DEFAULTS = { repeat: false, interval: 800, attempts: -1 };
-    options = Object.assign({}, OPTIONS_DEFAULTS, options || {});
-    let n = 0;
+function waitFor(selector, cb, repeat) {
+    const check = (root) => {
+        const nodes = root.querySelectorAll(selector);
+        nodes.forEach(cb);
 
-    const checkNow = function() {
-        const nodes = document.querySelectorAll(selector);
+        if(root.matches(selector)) cb(root);
+        return nodes.length > 0 || root.matches(selector);
+    };
 
-        if(!nodes.length) {
-            if(options.repeat || options.attempts === -1 || n < options.attempts) {
-                setTimeout(checkNow, options.interval);
-                n++;
+    if(check(document.body) && !repeat) return;
+
+    const observer = new MutationObserver(mutations => {
+        let found = false;
+
+        for(const m of mutations) {
+            for(const n of m.addedNodes) {
+                if(n.nodeType !== Node.ELEMENT_NODE) continue;
+                if(check(n)) found = true;
             }
         }
-        else {
-            nodes.forEach(cb);
-            if(options.repeat) setTimeout(checkNow, options.interval);
-        }
-    }
 
-    checkNow();
+        if(found && !repeat) observer.disconnect();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
 }
